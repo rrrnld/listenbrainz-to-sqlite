@@ -1,0 +1,8 @@
+#+TITLE: Musicbrainz Datasette Importer
+
+This is a small Python utility to fetch all of the listening history of a single user and store it in an SQLite database so it can be explored for and queried using the fabulous [[https://datasette.io/][datasette]] toolkit. In the end of course it's just an SQLite database, so what you end up doing with it is up to you.
+
+** Roadmap [/]
+
+- [ ] Import listening history of a user
+- [ ] Reconcile with existing database

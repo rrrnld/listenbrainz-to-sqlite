@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "datasette_listenbrainz_importer"
+version = "0.1.0"
+description = ""
+authors = ["heyarne <arne@schlueter.is>"]
+license = "GPL"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.26.0"
+click = "^8.0.3"
+tqdm = "^4.62.3"
+arrow = "^1.2.0"
+
+[tool.poetry.dev-dependencies]
+bpython = "^0.21"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+import_listens = "datasette_listenbrainz_importer:import_listens"
