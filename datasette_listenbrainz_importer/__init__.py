@@ -113,7 +113,7 @@ def import_listens(user, max_results, since, until):
 
                 upsert_recording(cur, meta['mbid_mapping']['recording_mbid'], meta['track_name'])
                 upsert_artists_for_recording(cur, meta['mbid_mapping']['artist_mbids'], meta['mbid_mapping']['recording_mbid'])
-                upsert_release_with_recording(cur, meta['mbid_mapping']['recording_mbid'], meta['track_name'], meta['mbid_mapping']['recording_mbid'])
+                upsert_release_with_recording(cur, meta['mbid_mapping']['release_mbid'], meta['track_name'], meta['mbid_mapping']['recording_mbid'])
 
                 # FIXME: It would be nice to be more consistent here and not just pass the entire listen :)
                 upsert_listen(cur, listen)
