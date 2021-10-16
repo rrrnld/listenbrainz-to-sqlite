@@ -6,13 +6,65 @@ def setup_database(db_path):
     with sqlite3.Connection(db_path) as db:
         cur = db.cursor()
 
+        cur.execute("PRAGMA foreign_keys = ON;")
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS artists (
+              mbid CHAR(36) PRIMARY KEY,
+              name TEXT
+            );
+            """
+        )
+
+        cur.execute(
+            """
+           CREATE TABLE IF NOT EXISTS recordings (
+               mbid CHAR(36) PRIMARY KEY,
+               name TEXT
+           );
+            """
+        )
+
+        cur.execute(
+            """
+            -- Use this to find out all of the artists performing in a recording
+            CREATE TABLE IF NOT EXISTS artists_for_recordings (
+                artist_mbid CHAR(36),
+                recording_mbid CHAR(36),
+                FOREIGN KEY ( artist_mbid ) REFERENCES artists ( mbid ),
+                FOREIGN KEY ( recording_mbid ) REFERENCES recordings ( mbid )
+            );
+            """
+        )
+        cur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS artists_for_recordings_mapping ON artists_for_recordings ( artist_mbid, recording_mbid );"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS artists_for_recordings_by_artist ON artists_for_recordings ( artist_mbid );"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS artists_for_recordings_by_recording ON artists_for_recordings ( recording_mbid );"
+        )
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS releases (
+                mbid CHAR(36) PRIMARY KEY,
+                name TEXT
+            );
+            """
+        )
+
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS listens (
                 listened_at TIMESTAMP,
                 user_name VARCHAR(255),
                 recording_mbid CHAR(36),
-                release_mbid CHAR(36)
+                release_mbid CHAR(36),
+                FOREIGN KEY ( recording_mbid ) REFERENCES recordings ( mbid ),
+                FOREIGN KEY ( release_mbid ) REFERENCES releases ( mbid )
             );
             """
         )
@@ -34,7 +86,9 @@ def setup_database(db_path):
             -- A listen can have multiple artists
             CREATE TABLE IF NOT EXISTS listen_artists (
                 listen_id INTEGER,
-                artist_mbid CHAR(36)
+                artist_mbid CHAR(36),
+                FOREIGN KEY ( listen_id ) REFERENCES listens ( id ),
+                FOREIGN KEY ( artist_mbid ) REFERENCES artists ( mbid )
             );
             """
         )
@@ -47,62 +101,11 @@ def setup_database(db_path):
 
         cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS artists (
-              mbid CHAR(36),
-              name TEXT
-            );
-            """
-        )
-        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS artists_mbid ON artists (mbid);")
-
-        cur.execute(
-            """
-           CREATE TABLE IF NOT EXISTS recordings (
-               mbid CHAR(36),
-               name TEXT
-           );
-            """
-        )
-        cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS recordings_mbid ON recordings (mbid);"
-        )
-
-        cur.execute(
-            """
-           -- Use this to find out all of the artists performing in a recording
-           CREATE TABLE IF NOT EXISTS artists_for_recordings (
-               artist_mbid CHAR(36),
-               recording_mbid CHAR(36)
-           );
-            """
-        )
-        cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS artists_for_recordings_mapping ON artists_for_recordings ( artist_mbid, recording_mbid );"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS artists_for_recordings_by_artist ON artists_for_recordings ( artist_mbid );"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS artists_for_recordings_by_recording ON artists_for_recordings ( recording_mbid );"
-        )
-
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS releases (
-                mbid CHAR(36),
-                name TEXT
-            );
-            """
-        )
-        cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS releases_mbid ON releases (mbid);"
-        )
-
-        cur.execute(
-            """
             CREATE TABLE IF NOT EXISTS recordings_on_releases (
                 recording_mbid CHAR(36),
-                release_mbid CHAR(36)
+                release_mbid CHAR(36),
+                FOREIGN KEY ( recording_mbid ) REFERENCES recordings ( mbid ),
+                FOREIGN KEY ( release_mbid ) REFERENCES releases ( mbid )
             );
             """
         )
