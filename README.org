@@ -36,7 +36,7 @@ Because it's a neat way to get an overview over your personal listening history.
 
 Additionally, I think this provides value because the information on the different *brainz is vast, but also widely scattered. I hope that this makes it easier to work with it.
 
-The poetry environment comes with datasette dev dependencies including plugins to create vega graphs and save custom queries, so a simple `poetry run datasette .` allows you to examine your listening history and get something like depicted on the screenshot above.
+The poetry environment comes with datasette dev dependencies including plugins to create vega graphs and save custom queries, so a simple =poetry run datasette .= allows you to examine your listening history and get something like depicted on the screenshot above.
 
 Please note that this is written for fun, the code is probably buggy and possibly not very pythonic. :)
 
