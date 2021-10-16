@@ -2,6 +2,8 @@
 
 This is a small Python utility to fetch all of the listening history of a single user from [[https://listenbrainz.org/][listenbrainz]] and store it in an SQLite database so it can be explored for and queried using the fabulous [[https://datasette.io/][datasette]] toolkit. It uses the [[https://musicbrainz.org/][musicbrainz]] api to fetch additional information about releases, recordings, and artists.
 
+Please note that this is written for fun, the code is probably buggy and possibly not very pythonic.
+
 #+begin_src
 $ poetry run import_listens --help
 

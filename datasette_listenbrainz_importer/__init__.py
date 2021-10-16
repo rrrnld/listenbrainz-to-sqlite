@@ -9,14 +9,17 @@ from .db import setup_database
 
 def datestr_to_timestamp(datestr: str):
     try:
-        dt = datetime.datetime(*map(int, datestr.split("-")))  # type: ignore
-        return int(time.mktime(dt.utctimetuple()))
+        return datetime.datetime(*map(int, datestr.split("-")))  # type: ignore
     except:
         return None
 
 
 def snake_case(d: dict):
     return {k.replace("-", "_"): v for (k, v) in d.items()}
+
+
+def ensure_keys(d: dict, ks):
+    return {k: d.get(k) for k in ks}
 
 
 def upsert_recording(db, mbid):
@@ -29,9 +32,16 @@ def upsert_recording(db, mbid):
         mb_recording["first-release-date"] = datestr_to_timestamp(
             mb_recording.get("first-release-date")
         )
+
+        # sometimes mbids change and musicbrainz silently redirects; we need to
+        # make sure we can still detect existing entries
+        mb_recording["id"] = mbid
         db.execute(
             "INSERT INTO recordings VALUES ( :id, :title, :disambiguation, :first_release_date, :length )",
-            snake_case(mb_recording),
+            ensure_keys(
+                snake_case(mb_recording),
+                ["id", "title", "disambiguation", "first_release_date", "length"],
+            ),
         )
 
 
@@ -39,10 +49,11 @@ def upsert_artists_for_recording(db, artist_mbids, recording_mbid):
     for artist_mbid in artist_mbids:
         artist = db.execute("SELECT * FROM artists WHERE mbid = ?", [artist_mbid])
         if not artist.fetchone():
-            time.sleep(1) # be nice
+            time.sleep(1)  # be nice
             mb_artist = requests.get(
                 f"https://musicbrainz.org/ws/2/artist/{artist_mbid}?fmt=json"
             ).json()
+            mb_artist["id"] = artist_mbid
             try:
                 db.execute(
                     """
@@ -52,7 +63,20 @@ def upsert_artists_for_recording(db, artist_mbids, recording_mbid):
                     :type, :type_id
                     )
                     """,
-                    snake_case(mb_artist),
+                    ensure_keys(
+                        snake_case(mb_artist),
+                        [
+                            "id",
+                            "name",
+                            "sort_name",
+                            "country",
+                            "disambiguation",
+                            "gender",
+                            "gender_id",
+                            "type",
+                            "type_id",
+                        ],
+                    ),
                 )
             except:
                 print(mb_artist)
@@ -79,6 +103,7 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
         mb_release = requests.get(
             f"https://musicbrainz.org/ws/2/release/{release_mbid}?fmt=json"
         ).json()
+        mb_release["id"] = release_mbid
         mb_release["date"] = datestr_to_timestamp(mb_release.get("date"))
         try:
             db.execute(
@@ -88,7 +113,21 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
                 :disambiguation, :quality, :status, :status_id
                 )
                 """,
-                snake_case(mb_release),
+                ensure_keys(
+                    snake_case(mb_release),
+                    [
+                        "id",
+                        "title",
+                        "asin",
+                        "barcode",
+                        "country",
+                        "date",
+                        "disambiguation",
+                        "quality",
+                        "status",
+                        "status_id",
+                    ],
+                ),
             )
         except:
             print(mb_release)
@@ -110,6 +149,7 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
 
 
 def upsert_listen(db, listen):
+    listen["listened_at"] = datetime.datetime.fromtimestamp(listen["listened_at"])
     imported_listen = db.execute(
         "SELECT * FROM listens WHERE listened_at = ?", [listen["listened_at"]]
     )
@@ -158,10 +198,8 @@ def upsert_listen(db, listen):
 def import_listens(user, max_results, since, until):
     setup_database("listenbrainz.db")
     with sqlite3.connect("listenbrainz.db") as con, tqdm(
-        desc=f'Starting to fetch {max_results or "all"} listens from the listenbrainz API',
-        unit=" listens",
-        position=0
-    ) as pbar, tqdm(desc=f'Waiting…', unit=' listens', position=1) as listen_pbar:
+        desc=f"Importing listens from the listenbrainz API", unit=" listens"
+    ) as pbar:
         con.isolation_level = None
         cur = con.cursor()
 
@@ -182,14 +220,9 @@ def import_listens(user, max_results, since, until):
 
             body = req.json()["payload"]
 
-            num_results += body["count"]
-            pbar.update(body["count"])
-
             # insert all listens, artists, recordings, etc.
             for listen in body["listens"]:
-                listen_pbar.set_description('Fetching detail information')
-                listen_pbar.update(1)
-                pbar.update(0)
+                pbar.update()
 
                 if not listen["track_metadata"].get("mbid_mapping"):
                     artist_name = listen["track_metadata"].get("artist_name", "")
@@ -200,7 +233,11 @@ def import_listens(user, max_results, since, until):
                     continue
 
                 meta = listen["track_metadata"]
-                upsert_recording(cur, meta["mbid_mapping"]["recording_mbid"])
+                try:
+                    upsert_recording(cur, meta["mbid_mapping"]["recording_mbid"])
+                except:
+                    print(listen)
+                    raise
                 upsert_artists_for_recording(
                     cur,
                     meta["mbid_mapping"]["artist_mbids"],
@@ -214,10 +251,12 @@ def import_listens(user, max_results, since, until):
 
                 upsert_listen(cur, listen)
 
-
-            con.commit()
-
-            max_ts = min(map(lambda l: l['listened_at'], body['listens'])) if body['listens'] else -1
+            max_ts = (
+                min(map(lambda l: l["listened_at"], body["listens"]))
+                if body["listens"]
+                else -1
+            )
+            num_results += body["count"]
             if (max_results and num_results >= max_results) or max_ts <= min_ts:
                 break
 
