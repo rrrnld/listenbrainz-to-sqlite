@@ -12,7 +12,14 @@ def setup_database(db_path):
             """
             CREATE TABLE IF NOT EXISTS artists (
               mbid CHAR(36) PRIMARY KEY,
-              name TEXT
+              name TEXT,
+              sort_name TEXT,
+              country CHAR(2),
+              disambiguation TEXT,
+              gender VARCHAR(255),
+              gender_id CHAR(36),
+              type VARCHAR(255),
+              type_id CHAR(36)
             );
             """
         )
@@ -21,7 +28,10 @@ def setup_database(db_path):
             """
            CREATE TABLE IF NOT EXISTS recordings (
                mbid CHAR(36) PRIMARY KEY,
-               name TEXT
+               title TEXT,
+               disambiguation TEXT,
+               first_release_date TIMESTAMP,
+               length INTEGER
            );
             """
         )
@@ -51,7 +61,15 @@ def setup_database(db_path):
             """
             CREATE TABLE IF NOT EXISTS releases (
                 mbid CHAR(36) PRIMARY KEY,
-                name TEXT
+                title TEXT,
+                asin VARCHAR(255),
+                barcode VARCHAR(255),
+                country CHAR(2),
+                date TIMESTAMP,
+                disambiguation TEXT,
+                quality VARCHAR(255),
+                status VARCHAR(255),
+                status_id CHAR(36)
             );
             """
         )
@@ -59,6 +77,7 @@ def setup_database(db_path):
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS listens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 listened_at TIMESTAMP,
                 user_name VARCHAR(255),
                 recording_mbid CHAR(36),
