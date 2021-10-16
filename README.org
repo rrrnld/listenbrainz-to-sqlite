@@ -42,5 +42,5 @@ This graph shows how many different releases (i.e. albums) I listened to on each
 
 ** Roadmap
 
-- [ ] Evaluate additional info form Musicbrainz
+- [ ] Evaluate additional info from Musicbrainz
 - [ ] Integrate Acoutsicbrainz
