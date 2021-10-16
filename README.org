@@ -1,8 +1,38 @@
 #+TITLE: Musicbrainz Datasette Importer
 
-This is a small Python utility to fetch all of the listening history of a single user and store it in an SQLite database so it can be explored for and queried using the fabulous [[https://datasette.io/][datasette]] toolkit. In the end of course it's just an SQLite database, so what you end up doing with it is up to you.
+This is a small Python utility to fetch all of the listening history of a single user from [[https://listenbrainz.org/][listenbrainz]] and store it in an SQLite database so it can be explored for and queried using the fabulous [[https://datasette.io/][datasette]] toolkit. It uses the [[https://musicbrainz.org/][musicbrainz]] api to fetch additional information about releases, recordings, and artists.
 
-** Roadmap [/]
+#+begin_src
+$ poetry run import_listens --help
 
-- [ ] Import listening history of a user
-- [ ] Reconcile with existing database
+Usage: import_listens [OPTIONS]
+
+  Imports listenbrainz history of a single user with associated artists,
+  releases, and recordings.
+
+Options:
+  --user TEXT                     The Listenbrainz username form which to
+                                  import listens  [required]
+  --max-results INTEGER           Limit the maximum amount of fetched results.
+  --since [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]
+                                  Consider only listens more recent than this
+                                  argument
+  --until [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]
+                                  Consider only listens older than this
+                                  argument
+  --help                          Show this message and exit.
+
+#+end_src
+
+You should be able to update the database continuously as your listening history grows. If that doesn't work it's a bug.
+
+** Why would I want to do that?
+
+Because it's a neat way to get an overview over your personal listening history. Spotify sucks, but the insight it allows you into your musical behavior is in parts quite cool. My hope is that this will make it easier to do similar things.
+
+Additionally, I think this provides value because the information on the different *brainz is vast, but also widely scattered. I hope that this makes it easier to work with it.
+
+** Roadmap
+
+- [ ] Evaluate additional info form Musicbrainz
+- [ ] Integrate Acoutsicbrainz
