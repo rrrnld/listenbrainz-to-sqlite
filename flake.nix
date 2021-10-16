@@ -35,7 +35,6 @@
           buildInputs = with pkgs; [
             python3
             poetry
-            datasette
             black
           ];
        };
