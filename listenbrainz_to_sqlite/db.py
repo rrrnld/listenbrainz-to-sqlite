@@ -87,6 +87,14 @@ def setup_database(db_path):
             """
         )
         cur.execute(
+            """
+            CREATE VIEW IF NOT EXISTS release_artists_label AS
+               SELECT release_mbid, group_concat(name || joinphrase, "") release_artists
+               FROM release_artists
+               GROUP BY release_mbid
+            """
+        )
+        cur.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS release_artists_mapping ON release_artists ( release_mbid, artist_mbid );"
         )
         cur.execute(
