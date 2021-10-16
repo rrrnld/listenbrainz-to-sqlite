@@ -36,6 +36,7 @@
             python3
             poetry
             datasette
+            black
           ];
        };
       }));
