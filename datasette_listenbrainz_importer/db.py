@@ -39,7 +39,7 @@ def setup_database(db_path):
         cur.execute(
             """
             -- Use this to find out all of the artists performing in a recording
-            CREATE TABLE IF NOT EXISTS artists_for_recordings (
+            CREATE TABLE IF NOT EXISTS recording_artists (
                 artist_mbid CHAR(36),
                 recording_mbid CHAR(36),
                 FOREIGN KEY ( artist_mbid ) REFERENCES artists ( mbid ),
@@ -48,13 +48,13 @@ def setup_database(db_path):
             """
         )
         cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS artists_for_recordings_mapping ON artists_for_recordings ( artist_mbid, recording_mbid );"
+            "CREATE UNIQUE INDEX IF NOT EXISTS recording_artists_mapping ON recording_artists ( artist_mbid, recording_mbid );"
         )
         cur.execute(
-            "CREATE INDEX IF NOT EXISTS artists_for_recordings_by_artist ON artists_for_recordings ( artist_mbid );"
+            "CREATE INDEX IF NOT EXISTS recording_artists_by_artist ON recording_artists ( artist_mbid );"
         )
         cur.execute(
-            "CREATE INDEX IF NOT EXISTS artists_for_recordings_by_recording ON artists_for_recordings ( recording_mbid );"
+            "CREATE INDEX IF NOT EXISTS recording_artists_by_recording ON recording_artists ( recording_mbid );"
         )
 
         cur.execute(
@@ -72,6 +72,28 @@ def setup_database(db_path):
                 status_id CHAR(36)
             );
             """
+        )
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS release_artists (
+                release_mbid CHAR(36),
+                artist_mbid CHAR(36),
+                joinphrase VARCHAR(255),
+                name TEXT,
+                FOREIGN KEY ( release_mbid ) REFERENCES releases ( mbid ),
+                FOREIGN KEY ( artist_mbid ) REFERENCES artists ( mbid )
+            )
+            """
+        )
+        cur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS release_artists_mapping ON release_artists ( release_mbid, artist_mbid );"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS release_artists_by_release ON release_artists ( release_mbid );"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS release_artists_by_artist ON release_artists ( artist_mbid );"
         )
 
         cur.execute(
@@ -120,7 +142,7 @@ def setup_database(db_path):
 
         cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS recordings_on_releases (
+            CREATE TABLE IF NOT EXISTS release_recordings (
                 recording_mbid CHAR(36),
                 release_mbid CHAR(36),
                 FOREIGN KEY ( recording_mbid ) REFERENCES recordings ( mbid ),
@@ -129,8 +151,8 @@ def setup_database(db_path):
             """
         )
         cur.execute(
-            "CREATE INDEX IF NOT EXISTS recordings_on_releases_by_recording ON recordings_on_releases ( recording_mbid );"
+            "CREATE INDEX IF NOT EXISTS release_recordings_by_recording ON release_recordings ( recording_mbid );"
         )
         cur.execute(
-            "CREATE INDEX IF NOT EXISTS recordings_on_releases_by_release ON recordings_on_releases ( release_mbid );"
+            "CREATE INDEX IF NOT EXISTS release_recordings_by_release ON release_recordings ( release_mbid );"
         )

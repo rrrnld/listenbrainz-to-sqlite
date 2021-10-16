@@ -45,53 +45,59 @@ def upsert_recording(db, mbid):
         )
 
 
-def upsert_artists_for_recording(db, artist_mbids, recording_mbid):
-    for artist_mbid in artist_mbids:
-        artist = db.execute("SELECT * FROM artists WHERE mbid = ?", [artist_mbid])
-        if not artist.fetchone():
-            time.sleep(1)  # be nice
-            mb_artist = requests.get(
-                f"https://musicbrainz.org/ws/2/artist/{artist_mbid}?fmt=json"
-            ).json()
-            mb_artist["id"] = artist_mbid
-            try:
-                db.execute(
-                    """
-                    INSERT INTO artists VALUES (
-                    :id, :name, :sort_name, :country,
-                    :disambiguation, :gender, :gender_id,
-                    :type, :type_id
-                    )
-                    """,
-                    ensure_keys(
-                        snake_case(mb_artist),
-                        [
-                            "id",
-                            "name",
-                            "sort_name",
-                            "country",
-                            "disambiguation",
-                            "gender",
-                            "gender_id",
-                            "type",
-                            "type_id",
-                        ],
-                    ),
+def upsert_artist(db, artist_mbid):
+    artist = db.execute("SELECT * FROM artists WHERE mbid = ?", [artist_mbid])
+    if not artist.fetchone():
+        time.sleep(1)  # be nice
+        mb_artist = requests.get(
+            f"https://musicbrainz.org/ws/2/artist/{artist_mbid}?fmt=json"
+        ).json()
+        mb_artist["id"] = artist_mbid
+        try:
+            db.execute(
+                """
+                INSERT INTO artists VALUES (
+                :id, :name, :sort_name, :country,
+                :disambiguation, :gender, :gender_id,
+                :type, :type_id
                 )
-            except:
-                print(mb_artist)
-                raise
+                """,
+                ensure_keys(
+                    snake_case(mb_artist),
+                    [
+                        "id",
+                        "name",
+                        "sort_name",
+                        "country",
+                        "disambiguation",
+                        "gender",
+                        "gender_id",
+                        "type",
+                        "type_id",
+                    ],
+                ),
+            )
+        except InterruptedError:
+            pass
+        except:
+            print(mb_artist)
+            raise
+
+
+def upsert_recording_artists(db, artist_mbids, recording_mbid):
+    for artist_mbid in artist_mbids:
+        upsert_artist(db, artist_mbid)
 
         artist_on_recording = db.execute(
             """
-            SELECT * FROM artists_for_recordings
+            SELECT * FROM recording_artists
             WHERE artist_mbid = ? AND recording_mbid = ?;
             """,
             [artist_mbid, recording_mbid],
         )
         if not artist_on_recording.fetchone():
             db.execute(
-                "INSERT INTO artists_for_recordings VALUES ( ?, ? )",
+                "INSERT INTO recording_artists VALUES ( ?, ? )",
                 [artist_mbid, recording_mbid],
             )
 
@@ -101,7 +107,7 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
     if not release.fetchone():
         time.sleep(1)
         mb_release = requests.get(
-            f"https://musicbrainz.org/ws/2/release/{release_mbid}?fmt=json"
+            f"https://musicbrainz.org/ws/2/release/{release_mbid}?fmt=json&inc=artists"
         ).json()
         mb_release["id"] = release_mbid
         mb_release["date"] = datestr_to_timestamp(mb_release.get("date"))
@@ -129,36 +135,58 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
                     ],
                 ),
             )
+        except InterruptedError:
+            pass
         except:
             print(mb_release)
             raise
 
-    recording_on_release = db.execute(
+        for artist_credit in mb_release["artist-credit"]:
+            # TODO: This is not ideal becaue
+            # a) we're using musicbrainz mbids and might have the previous problem of mbid drift
+            # b) we're refetching information we already have due to how upsert_artist is written
+            upsert_artist(db, artist_credit["artist"]["id"])
+            release_artist = db.execute(
+                "SELECT * FROM release_artists WHERE release_mbid = ? AND artist_mbid = ?",
+                [mb_release["id"], artist_credit["artist"]["id"]],
+            )
+            if not release_artist.fetchone():
+                db.execute(
+                    "INSERT INTO release_artists VALUES ( :release_mbid, :artist_mbid, :joinphrase, :name )",
+                    {
+                        "release_mbid": mb_release["id"],
+                        "artist_mbid": artist_credit["artist"]["id"],
+                        "joinphrase": artist_credit["joinphrase"],
+                        "name": artist_credit["name"],
+                    },
+                )
+
+    release_recording = db.execute(
         """
-        SELECT * FROM recordings_on_releases WHERE recording_mbid = ? AND release_mbid = ?;
+        SELECT * FROM release_recordings WHERE recording_mbid = ? AND release_mbid = ?;
         """,
         [recording_mbid, release_mbid],
     )
-    if not recording_on_release.fetchone():
+    if not release_recording.fetchone():
         db.execute(
             """
-            INSERT INTO recordings_on_releases VALUES ( ?, ? );
+            INSERT INTO release_recordings VALUES ( ?, ? );
             """,
             [recording_mbid, release_mbid],
         )
 
 
 def upsert_listen(db, listen):
-    listen["listened_at"] = datetime.datetime.fromtimestamp(listen["listened_at"])
+    listened_at = datetime.datetime.fromtimestamp(listen["listened_at"])
     imported_listen = db.execute(
-        "SELECT * FROM listens WHERE listened_at = ?", [listen["listened_at"]]
+        "SELECT * FROM listens WHERE listened_at = ?", [listened_at]
     )
     if not imported_listen.fetchone():
         mbids = listen["track_metadata"]["mbid_mapping"]
         cur = db.execute(
             "INSERT INTO listens VALUES ( NULL, ?, ?, ?, ? )",
             [
-                listen["listened_at"],
+                listened_at,
                 listen["user_name"],
                 mbids["recording_mbid"],
                 mbids["release_mbid"],
@@ -233,12 +261,8 @@ def import_listens(user, max_results, since, until):
                     continue
 
                 meta = listen["track_metadata"]
-                try:
-                    upsert_recording(cur, meta["mbid_mapping"]["recording_mbid"])
-                except:
-                    print(listen)
-                    raise
-                upsert_artists_for_recording(
+                upsert_recording(cur, meta["mbid_mapping"]["recording_mbid"])
+                upsert_recording_artists(
                     cur,
                     meta["mbid_mapping"]["artist_mbids"],
                     meta["mbid_mapping"]["recording_mbid"],
