@@ -34,6 +34,12 @@ Because it's a neat way to get an overview over your personal listening history.
 
 Additionally, I think this provides value because the information on the different *brainz is vast, but also widely scattered. I hope that this makes it easier to work with it.
 
+The poetry environment comes with datasette dev dependencies including plugins to create vega graphs and save custom queries, so `poetry run datasette .` allows you to examine your listening history:
+
+[[file:screenshot.png]]
+
+This graph shows how many different releases (i.e. albums) I listened to on each day.
+
 ** Roadmap
 
 - [ ] Evaluate additional info form Musicbrainz

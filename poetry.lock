@@ -193,6 +193,21 @@ rich = ["rich"]
 test = ["pytest (>=5.2.2,<6.3.0)", "pytest-xdist (>=2.2.1,<2.5)", "pytest-asyncio (>=0.10,<0.16)", "beautifulsoup4 (>=4.8.1,<4.11.0)", "black (==21.9b0)", "pytest-timeout (>=1.4.2,<2.1)", "trustme (>=0.7,<0.10)"]
 
 [[package]]
+name = "datasette-saved-queries"
+version = "0.2.1"
+description = "Datasette plugin that lets users save and execute queries"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+datasette = ">=0.45"
+sqlite-utils = "*"
+
+[package.extras]
+test = ["pytest", "pytest-asyncio", "httpx"]
+
+[[package]]
 name = "datasette-vega"
 version = "0.6.2"
 description = "A Datasette plugin that provides tools for generating charts using Vega"
@@ -202,6 +217,18 @@ python-versions = "*"
 
 [package.dependencies]
 datasette = "*"
+
+[[package]]
+name = "dateutils"
+version = "0.6.12"
+description = "Various utilities for working with date and datetime objects"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+python-dateutil = "*"
+pytz = "*"
 
 [[package]]
 name = "greenlet"
@@ -410,6 +437,14 @@ python-versions = "*"
 six = ">=1.4.0"
 
 [[package]]
+name = "pytz"
+version = "2021.3"
+description = "World timezone definitions, modern and historical"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyxdg"
 version = "0.27"
 description = "PyXDG contains implementations of freedesktop.org standards in python."
@@ -474,6 +509,49 @@ optional = false
 python-versions = ">=3.5"
 
 [[package]]
+name = "sqlite-fts4"
+version = "1.0.1"
+description = "Python functions for working with SQLite FTS4 search"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.extras]
+test = ["pytest"]
+
+[[package]]
+name = "sqlite-utils"
+version = "3.17.1"
+description = "CLI tool and Python utility functions for manipulating SQLite databases"
+category = "dev"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+click = "*"
+click-default-group = "*"
+dateutils = "*"
+sqlite-fts4 = "*"
+tabulate = "*"
+
+[package.extras]
+docs = ["sphinx-rtd-theme", "sphinx-autobuild", "codespell"]
+flake8 = ["flake8"]
+mypy = ["mypy", "types-click", "types-tabulate", "types-python-dateutil", "data-science-types"]
+test = ["pytest", "black", "hypothesis"]
+
+[[package]]
+name = "tabulate"
+version = "0.8.9"
+description = "Pretty-print tabular data"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.extras]
+widechars = ["wcwidth"]
+
+[[package]]
 name = "tqdm"
 version = "4.62.3"
 description = "Fast, Extensible Progress Meter"
@@ -521,7 +599,7 @@ standard = ["websockets (>=9.1)", "httptools (>=0.2.0,<0.3.0)", "watchgod (>=0.6
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "8d9fe1b556b4e96ddae087d721da5493ed49d6b66c0792e0d9d34bfd920c6794"
+content-hash = "cabef6210b71f1bb8a3e1c6a235210260165e7f38d2e4dc52a2c22389cb3ecaf"
 
 [metadata.files]
 aiofiles = [
@@ -602,8 +680,16 @@ datasette = [
     {file = "datasette-0.59-py3-none-any.whl", hash = "sha256:2eb7adf734315562e8da17182f955d3e45a4f8c2547c591ea9ba2d03c8b8ee04"},
     {file = "datasette-0.59.tar.gz", hash = "sha256:819082894459858d63576ea58b02c44ce4cb78dd611cd514fb60297ab2625322"},
 ]
+datasette-saved-queries = [
+    {file = "datasette-saved-queries-0.2.1.tar.gz", hash = "sha256:3762bb4c31d5c5cbed089004d18da8599f004dc3e0e62ee9a645bec5a9fcf9a1"},
+    {file = "datasette_saved_queries-0.2.1-py3-none-any.whl", hash = "sha256:eca47345fff5122c949d875bbcad3c8cd25ca79a04482923cc8476b1e29f868a"},
+]
 datasette-vega = [
     {file = "datasette_vega-0.6.2-py3-none-any.whl", hash = "sha256:6aca6a40f0b244d6d05548bfff94a99f0ef96bd5b89ade241f0d389f7a01a063"},
+]
+dateutils = [
+    {file = "dateutils-0.6.12-py2.py3-none-any.whl", hash = "sha256:f33b6ab430fa4166e7e9cb8b21ee9f6c9843c48df1a964466f52c79b2a8d53b3"},
+    {file = "dateutils-0.6.12.tar.gz", hash = "sha256:03dd90bcb21541bd4eb4b013637e4f1b5f944881c46cc6e4b67a6059e370e3f1"},
 ]
 greenlet = [
     {file = "greenlet-1.1.2-cp27-cp27m-macosx_10_14_x86_64.whl", hash = "sha256:58df5c2a0e293bf665a51f8a100d3e9956febfbf1d9aaf8c0677cf70218910c6"},
@@ -759,6 +845,10 @@ python-dateutil = [
 python-multipart = [
     {file = "python-multipart-0.0.5.tar.gz", hash = "sha256:f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43"},
 ]
+pytz = [
+    {file = "pytz-2021.3-py2.py3-none-any.whl", hash = "sha256:3672058bc3453457b622aab7a1c3bfd5ab0bdae451512f6cf25f64ed37f5b87c"},
+    {file = "pytz-2021.3.tar.gz", hash = "sha256:acad2d8b20a1af07d4e4c9d2e9285c5ed9104354062f275f3fcd88dcef4f1326"},
+]
 pyxdg = [
     {file = "pyxdg-0.27-py2.py3-none-any.whl", hash = "sha256:2d6701ab7c74bbab8caa6a95e0a0a129b1643cf6c298bf7c569adec06d0709a0"},
     {file = "pyxdg-0.27.tar.gz", hash = "sha256:80bd93aae5ed82435f20462ea0208fb198d8eec262e831ee06ce9ddb6b91c5a5"},
@@ -813,6 +903,18 @@ six = [
 sniffio = [
     {file = "sniffio-1.2.0-py3-none-any.whl", hash = "sha256:471b71698eac1c2112a40ce2752bb2f4a4814c22a54a3eed3676bc0f5ca9f663"},
     {file = "sniffio-1.2.0.tar.gz", hash = "sha256:c4666eecec1d3f50960c6bdf61ab7bc350648da6c126e3cf6898d8cd4ddcd3de"},
+]
+sqlite-fts4 = [
+    {file = "sqlite-fts4-1.0.1.tar.gz", hash = "sha256:b2d4f536a28181dc4ced293b602282dd982cc04f506cf3fc491d18b824c2f613"},
+    {file = "sqlite_fts4-1.0.1-py3-none-any.whl", hash = "sha256:a41b3e510df8bda50e9b1a5162a1e8ff3b92c62a1576ff5c74aaae2cedc9d4f5"},
+]
+sqlite-utils = [
+    {file = "sqlite-utils-3.17.1.tar.gz", hash = "sha256:0cfde0c46a2d4c09d6df8609fe53642bc3ab443bcef3106d8f1eabeb3fccbe3d"},
+    {file = "sqlite_utils-3.17.1-py3-none-any.whl", hash = "sha256:6bb1c4e5cfed7fd076920717bbd61d0cf791b8988aa3e80ec66e91a039e991eb"},
+]
+tabulate = [
+    {file = "tabulate-0.8.9-py3-none-any.whl", hash = "sha256:d7c013fe7abbc5e491394e10fa845f8f32fe54f8dc60c6622c6cf482d25d47e4"},
+    {file = "tabulate-0.8.9.tar.gz", hash = "sha256:eb1d13f25760052e8931f2ef80aaf6045a6cceb47514db8beab24cded16f13a7"},
 ]
 tqdm = [
     {file = "tqdm-4.62.3-py2.py3-none-any.whl", hash = "sha256:8dd278a422499cd6b727e6ae4061c40b48fce8b76d1ccbf5d34fca9b7f925b0c"},
