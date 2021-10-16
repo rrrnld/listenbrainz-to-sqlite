@@ -160,7 +160,8 @@ def import_listens(user, max_results, since, until):
     with sqlite3.connect("listenbrainz.db") as con, tqdm(
         desc=f'Starting to fetch {max_results or "all"} listens from the listenbrainz API',
         unit=" listens",
-    ) as pbar:
+        position=0
+    ) as pbar, tqdm(desc=f'Waiting…', unit=' listens', position=1) as listen_pbar:
         con.isolation_level = None
         cur = con.cursor()
 
@@ -172,17 +173,24 @@ def import_listens(user, max_results, since, until):
         while True:
             req = requests.get(
                 f"https://api.listenbrainz.org/1/user/{user}/listens",
-                {"min_ts": min_ts, "max_ts": max_ts},
+                {"max_ts": max_ts, "count": 100},
             )
             if not req.ok:
-                print("Something is wrong! aborting")
-                print(f'{req.status_code}: {req.json()["error"]}')
+                tqdm.write("Something is wrong! aborting")
+                tqdm.write(f'{req.status_code}: {req.json()["error"]}')
                 break
 
             body = req.json()["payload"]
 
+            num_results += body["count"]
+            pbar.update(body["count"])
+
             # insert all listens, artists, recordings, etc.
             for listen in body["listens"]:
+                listen_pbar.set_description('Fetching detail information')
+                listen_pbar.update(1)
+                pbar.update(0)
+
                 if not listen["track_metadata"].get("mbid_mapping"):
                     artist_name = listen["track_metadata"].get("artist_name", "")
                     track_name = listen["track_metadata"].get("track_name", "")
@@ -206,15 +214,14 @@ def import_listens(user, max_results, since, until):
 
                 upsert_listen(cur, listen)
 
-            num_results += body["count"]
-            pbar.update(body["count"])
-
-            min_ts = body["latest_listen_ts"]
-            if (max_results and num_results >= max_results) or not body["listens"]:
-                break
 
             con.commit()
-            time.sleep(0.5)
+
+            max_ts = min(map(lambda l: l['listened_at'], body['listens'])) if body['listens'] else -1
+            if (max_results and num_results >= max_results) or max_ts <= min_ts:
+                break
+
+            time.sleep(1)
 
 
 if __name__ == "__main__":
