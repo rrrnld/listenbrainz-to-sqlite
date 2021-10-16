@@ -226,7 +226,7 @@ def upsert_listen(db, listen):
 def import_listens(user, max_results, since, until):
     setup_database("listenbrainz.db")
     with sqlite3.connect("listenbrainz.db") as con, tqdm(
-        desc=f"Importing listens from the listenbrainz API", unit=" listens"
+        desc=f"Importing listens from the listenbrainz API", unit="listen(s)"
     ) as pbar:
         con.isolation_level = None
         cur = con.cursor()
@@ -242,7 +242,7 @@ def import_listens(user, max_results, since, until):
                 {"max_ts": max_ts, "count": 100},
             )
             if not req.ok:
-                tqdm.write("Something is wrong! aborting")
+                tqdm.write(f"Something went wrong while requesting {req.url}, aborting")
                 tqdm.write(f'{req.status_code}: {req.json()["error"]}')
                 break
 
