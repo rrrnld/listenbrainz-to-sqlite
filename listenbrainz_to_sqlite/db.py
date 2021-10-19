@@ -129,6 +129,28 @@ def setup_database(db_path):
         cur.execute(
             "CREATE INDEX IF NOT EXISTS listens_track_release_mbid ON listens ( release_mbid );"
         )
+        cur.execute(
+            """
+            CREATE VIEW IF NOT EXISTS listens_as_sequence AS
+              SELECT
+                *,
+                LAG(release_mbid) OVER (
+                  ORDER BY
+                    listened_at DESC
+                ) following_release_mbid,
+                LAG(recording_mbid) OVER (
+                  ORDER BY
+                    listened_at DESC
+                ) following_recording_mbid,
+                LAG(listened_at) OVER (
+                  ORDER BY
+                    listened_at DESC
+                ) following_listened_at
+              FROM
+                listens
+              ORDER BY listened_at DESC
+            """
+        )
 
         cur.execute(
             """
