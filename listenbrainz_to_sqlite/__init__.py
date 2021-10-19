@@ -22,6 +22,15 @@ def ensure_keys(d: dict, ks):
     return {k: d.get(k) for k in ks}
 
 
+def get_manual_or_mapped(listen, mbid_type: str):
+    meta = listen["track_metadata"]
+    manually_submitted = meta.get("additional_info", {}).get(mbid_type)
+    if manually_submitted:
+        return manually_submitted
+    else:
+        return meta.get("mbid_mapping", {}).get(mbid_type)
+
+
 def upsert_recording(db, mbid):
     recording = db.execute("SELECT * FROM recordings WHERE mbid = ?", [mbid])
     if not recording.fetchone():
@@ -141,25 +150,29 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
             print(mb_release)
             raise
 
-        for artist_credit in mb_release["artist-credit"]:
-            # TODO: This is not ideal becaue
-            # a) we're using musicbrainz mbids and might have the previous problem of mbid drift
-            # b) we're refetching information we already have due to how upsert_artist is written
-            upsert_artist(db, artist_credit["artist"]["id"])
-            release_artist = db.execute(
-                "SELECT * FROM release_artists WHERE release_mbid = ? AND artist_mbid = ?",
-                [mb_release["id"], artist_credit["artist"]["id"]],
-            )
-            if not release_artist.fetchone():
-                db.execute(
-                    "INSERT INTO release_artists VALUES ( :release_mbid, :artist_mbid, :joinphrase, :name )",
-                    {
-                        "release_mbid": mb_release["id"],
-                        "artist_mbid": artist_credit["artist"]["id"],
-                        "joinphrase": artist_credit["joinphrase"],
-                        "name": artist_credit["name"],
-                    },
+        try:
+            for artist_credit in mb_release["artist-credit"]:
+                # TODO: This is not ideal becaue
+                # a) we're using musicbrainz mbids and might have the previous problem of mbid drift
+                # b) we're refetching information we already have due to how upsert_artist is written
+                upsert_artist(db, artist_credit["artist"]["id"])
+                release_artist = db.execute(
+                    "SELECT * FROM release_artists WHERE release_mbid = ? AND artist_mbid = ?",
+                    [mb_release["id"], artist_credit["artist"]["id"]],
                 )
+                if not release_artist.fetchone():
+                    db.execute(
+                        "INSERT INTO release_artists VALUES ( :release_mbid, :artist_mbid, :joinphrase, :name )",
+                        {
+                            "release_mbid": mb_release["id"],
+                            "artist_mbid": artist_credit["artist"]["id"],
+                            "joinphrase": artist_credit["joinphrase"],
+                            "name": artist_credit["name"],
+                        },
+                    )
+        except:
+            tqdm.write(f"response: {mb_release}")
+            raise
 
     release_recording = db.execute(
         """
@@ -182,20 +195,23 @@ def upsert_listen(db, listen):
         "SELECT * FROM listens WHERE listened_at = ?", [listened_at]
     )
     if not imported_listen.fetchone():
-        mbids = listen["track_metadata"]["mbid_mapping"]
+        meta = listen["track_metadata"]
         cur = db.execute(
             "INSERT INTO listens VALUES ( NULL, ?, ?, ?, ? )",
             [
                 listened_at,
                 listen["user_name"],
-                mbids["recording_mbid"],
-                mbids["release_mbid"],
+                get_manual_or_mapped(listen, "recording_mbid"),
+                get_manual_or_mapped(listen, "release_mbid"),
             ],
         )
 
         db.executemany(
             "INSERT INTO listen_artists VALUES ( ?, ? )",
-            [(cur.lastrowid, artist_mbid) for artist_mbid in mbids["artist_mbids"]],
+            [
+                (cur.lastrowid, artist_mbid)
+                for artist_mbid in get_manual_or_mapped(listen, "artist_mbids")
+            ],
         )
 
 
@@ -237,6 +253,10 @@ def import_listens(user, max_results, since, until):
         max_ts = int(time.mktime(until.timetuple()))
 
         while True:
+            max_dt = datetime.datetime.fromtimestamp(max_ts)
+            pbar.set_description_str(
+                f'Importing @ {max_dt.strftime("%Y-%m-%d %H:%M:%S")}'
+            )
             req = requests.get(
                 f"https://api.listenbrainz.org/1/user/{user}/listens",
                 {"max_ts": max_ts, "count": 100},
@@ -252,28 +272,38 @@ def import_listens(user, max_results, since, until):
             for listen in body["listens"]:
                 pbar.update()
 
-                if not listen["track_metadata"].get("mbid_mapping"):
-                    artist_name = listen["track_metadata"].get("artist_name", "")
-                    track_name = listen["track_metadata"].get("track_name", "")
+                artist_mbids = get_manual_or_mapped(listen, "artist_mbids")
+                recording_mbid = get_manual_or_mapped(listen, "recording_mbid")
+                release_mbid = get_manual_or_mapped(listen, "release_mbid")
+
+                if not (artist_mbids and recording_mbid and release_mbid):
+                    meta = listen["track_metadata"]
+                    artist_name = meta.get("artist_name", "")
+                    track_name = meta.get("track_name", "")
                     tqdm.write(
                         f"Skipping listen without mbid info: {artist_name} - {track_name}",
                     )
                     continue
 
-                meta = listen["track_metadata"]
-                upsert_recording(cur, meta["mbid_mapping"]["recording_mbid"])
-                upsert_recording_artists(
-                    cur,
-                    meta["mbid_mapping"]["artist_mbids"],
-                    meta["mbid_mapping"]["recording_mbid"],
-                )
-                upsert_release_with_recording(
-                    cur,
-                    meta["mbid_mapping"]["release_mbid"],
-                    meta["mbid_mapping"]["recording_mbid"],
-                )
-
-                upsert_listen(cur, listen)
+                try:
+                    upsert_recording(cur, recording_mbid)
+                    upsert_recording_artists(
+                        cur,
+                        artist_mbids,
+                        recording_mbid,
+                    )
+                    upsert_release_with_recording(
+                        cur,
+                        release_mbid,
+                        recording_mbid,
+                    )
+                    upsert_listen(cur, listen)
+                except:
+                    tqdm.write(
+                        f"Something went wrong while requesting {req.url}, aborting"
+                    )
+                    tqdm.write(f"listen: {listen}")
+                    raise
 
             max_ts = (
                 min(map(lambda l: l["listened_at"], body["listens"]))
