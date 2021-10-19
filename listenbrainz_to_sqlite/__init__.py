@@ -89,7 +89,7 @@ def upsert_artist(db, artist_mbid):
         except InterruptedError:
             pass
         except:
-            print(mb_artist)
+            tqdm.wrte(f"artist response: {mb_artist}")
             raise
 
 
@@ -147,7 +147,7 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
         except InterruptedError:
             pass
         except:
-            print(mb_release)
+            tqdm.write(f"release response: {mb_release}")
             raise
 
         try:
