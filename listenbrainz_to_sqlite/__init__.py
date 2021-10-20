@@ -229,7 +229,7 @@ def upsert_listen(db, listen):
 )
 @click.option(
     "--since",
-    default=datetime.datetime(1970, 1, 1),
+    default=datetime.datetime(1970, 1, 1, 1, 0),
     help="Consider only listens more recent than this argument",
     type=click.DateTime(),
 )
@@ -251,6 +251,7 @@ def import_listens(user, max_results, since, until):
 
         min_ts = int(time.mktime(since.timetuple()))
         max_ts = int(time.mktime(until.timetuple()))
+        tqdm.write(f"min_ts: {min_ts}")
 
         while True:
             max_dt = datetime.datetime.fromtimestamp(max_ts)
@@ -305,11 +306,12 @@ def import_listens(user, max_results, since, until):
                     tqdm.write(f"listen: {listen}")
                     raise
 
-            max_ts = (
-                min(map(lambda l: l["listened_at"], body["listens"]))
-                if body["listens"]
-                else -1
-            )
+            try:
+                max_ts = min(map(lambda l: l["listened_at"], body.get("listens", [])))
+            except ValueError:
+                # empty list for listens
+                break
+
             num_results += body["count"]
             if (max_results and num_results >= max_results) or max_ts <= min_ts:
                 break
