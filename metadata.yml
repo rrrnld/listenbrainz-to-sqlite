@@ -1,0 +1,11 @@
+databases:
+  listenbrainz:
+    tables:
+      _yoyo_log:
+        hidden: true
+      _yoyo_migration:
+        hidden: true
+      _yoyo_version:
+        hidden: true
+      yoyo_lock:
+        hidden: true
