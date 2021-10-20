@@ -307,7 +307,7 @@ def import_listens(user, max_results, since, until):
                     raise
 
             try:
-                max_ts = min(map(lambda l: l["listened_at"], body.get("listens", [])))
+                max_ts = min([l["listened_at"] for l in body.get("listens", [])])
             except ValueError:
                 # empty list for listens
                 break
