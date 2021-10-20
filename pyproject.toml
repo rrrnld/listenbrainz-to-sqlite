@@ -11,6 +11,7 @@ requests = "^2.26.0"
 click = "^8.0.3"
 tqdm = "^4.62.3"
 arrow = "^1.2.0"
+yoyo-migrations = "^7.3.2"
 
 [tool.poetry.dev-dependencies]
 bpython = "^0.21"

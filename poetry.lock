@@ -541,10 +541,18 @@ mypy = ["mypy", "types-click", "types-tabulate", "types-python-dateutil", "data-
 test = ["pytest", "black", "hypothesis"]
 
 [[package]]
+name = "sqlparse"
+version = "0.4.2"
+description = "A non-validating SQL parser."
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[[package]]
 name = "tabulate"
 version = "0.8.9"
 description = "Pretty-print tabular data"
-category = "dev"
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -596,10 +604,27 @@ h11 = ">=0.8"
 [package.extras]
 standard = ["websockets (>=9.1)", "httptools (>=0.2.0,<0.3.0)", "watchgod (>=0.6)", "python-dotenv (>=0.13)", "PyYAML (>=5.1)", "uvloop (>=0.14.0,!=0.15.0,!=0.15.1)", "colorama (>=0.4)"]
 
+[[package]]
+name = "yoyo-migrations"
+version = "7.3.2"
+description = "Database migrations with SQL"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+sqlparse = "*"
+tabulate = "*"
+
+[package.extras]
+mysql = ["pymysql"]
+postgres = ["psycopg2"]
+pyodbc = ["pyodbc"]
+
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "cabef6210b71f1bb8a3e1c6a235210260165e7f38d2e4dc52a2c22389cb3ecaf"
+content-hash = "f1f1ab76ff9f097695f20a5e4dc3c664761e5528eb310dbb44892fb888e68f14"
 
 [metadata.files]
 aiofiles = [
@@ -912,6 +937,10 @@ sqlite-utils = [
     {file = "sqlite-utils-3.17.1.tar.gz", hash = "sha256:0cfde0c46a2d4c09d6df8609fe53642bc3ab443bcef3106d8f1eabeb3fccbe3d"},
     {file = "sqlite_utils-3.17.1-py3-none-any.whl", hash = "sha256:6bb1c4e5cfed7fd076920717bbd61d0cf791b8988aa3e80ec66e91a039e991eb"},
 ]
+sqlparse = [
+    {file = "sqlparse-0.4.2-py3-none-any.whl", hash = "sha256:48719e356bb8b42991bdbb1e8b83223757b93789c00910a616a071910ca4a64d"},
+    {file = "sqlparse-0.4.2.tar.gz", hash = "sha256:0c00730c74263a94e5a9919ade150dfc3b19c574389985446148402998287dae"},
+]
 tabulate = [
     {file = "tabulate-0.8.9-py3-none-any.whl", hash = "sha256:d7c013fe7abbc5e491394e10fa845f8f32fe54f8dc60c6622c6cf482d25d47e4"},
     {file = "tabulate-0.8.9.tar.gz", hash = "sha256:eb1d13f25760052e8931f2ef80aaf6045a6cceb47514db8beab24cded16f13a7"},
@@ -927,4 +956,8 @@ urllib3 = [
 uvicorn = [
     {file = "uvicorn-0.15.0-py3-none-any.whl", hash = "sha256:17f898c64c71a2640514d4089da2689e5db1ce5d4086c2d53699bf99513421c1"},
     {file = "uvicorn-0.15.0.tar.gz", hash = "sha256:d9a3c0dd1ca86728d3e235182683b4cf94cd53a867c288eaeca80ee781b2caff"},
+]
+yoyo-migrations = [
+    {file = "yoyo-migrations-7.3.2.tar.gz", hash = "sha256:44840828e1a0169f541e702d5aedca8185ada68087e7bad4850a6fc5d71e77a4"},
+    {file = "yoyo_migrations-7.3.2-py3-none-any.whl", hash = "sha256:a6e6bc990732d4951c4e2a5b2815d60fe47a445f1c0d1b3433b9ef5f36bca8df"},
 ]

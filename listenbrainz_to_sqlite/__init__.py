@@ -4,7 +4,7 @@ from tqdm import tqdm
 import time
 import datetime
 import sqlite3
-from .db import setup_database
+from yoyo import read_migrations, get_backend
 
 
 def datestr_to_timestamp(datestr: str):
@@ -240,7 +240,11 @@ def upsert_listen(db, listen):
     type=click.DateTime(),
 )
 def import_listens(user, max_results, since, until):
-    setup_database("listenbrainz.db")
+    backend = get_backend("sqlite:///listenbrainz.db")
+    migrations = read_migrations("./migrations")
+    with backend.lock():
+        backend.apply_migrations(backend.to_apply(migrations))
+
     with sqlite3.connect("listenbrainz.db") as con, tqdm(
         desc=f"Importing listens from the listenbrainz API", unit="listen(s)"
     ) as pbar:
@@ -251,7 +255,6 @@ def import_listens(user, max_results, since, until):
 
         min_ts = int(time.mktime(since.timetuple()))
         max_ts = int(time.mktime(until.timetuple()))
-        tqdm.write(f"min_ts: {min_ts}")
 
         while True:
             max_dt = datetime.datetime.fromtimestamp(max_ts)
