@@ -241,7 +241,7 @@ def upsert_listen(db, listen):
 )
 def import_listens(user, max_results, since, until):
     backend = get_backend("sqlite:///listenbrainz.db")
-    migrations = read_migrations("./migrations")
+    migrations = read_migrations("./listenbrainz_to_sqlite/migrations")
     with backend.lock():
         backend.apply_migrations(backend.to_apply(migrations))
 
