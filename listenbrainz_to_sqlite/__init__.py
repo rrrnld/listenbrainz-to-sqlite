@@ -7,6 +7,9 @@ import sqlite3
 from yoyo import read_migrations, get_backend
 
 
+exec_start = datetime.datetime.utcnow()
+
+
 def datestr_to_timestamp(datestr: str):
     try:
         return datetime.datetime(*map(int, datestr.split("-")))  # type: ignore
@@ -31,8 +34,13 @@ def get_manual_or_mapped(listen, mbid_type: str):
         return meta.get("mbid_mapping", {}).get(mbid_type)
 
 
-def upsert_recording(db, mbid):
-    recording = db.execute("SELECT * FROM recordings WHERE mbid = ?", [mbid])
+def upsert_recording(db, mbid, always_update):
+    should_update = "recordings" in always_update
+    recording = db.execute(
+        "SELECT * FROM recordings WHERE mbid = :mbid"
+        + (" AND updated_at > :ts" if should_update else ""),
+        {"mbid": mbid, "ts": exec_start},
+    )
     if not recording.fetchone():
         time.sleep(1)
         mb_recording = requests.get(
@@ -46,7 +54,14 @@ def upsert_recording(db, mbid):
         # make sure we can still detect existing entries
         mb_recording["id"] = mbid
         db.execute(
-            "INSERT INTO recordings VALUES ( :id, :title, :disambiguation, :first_release_date, :length )",
+            """
+            INSERT INTO recordings
+            VALUES ( :id, :title, :disambiguation, :first_release_date, :length, NULL )
+            ON CONFLICT ( mbid )
+            DO UPDATE SET
+              title = :title, disambiguation = :disambiguation,
+              first_release_date = :first_release_date, length = :length
+            """,
             ensure_keys(
                 snake_case(mb_recording),
                 ["id", "title", "disambiguation", "first_release_date", "length"],
@@ -54,8 +69,13 @@ def upsert_recording(db, mbid):
         )
 
 
-def upsert_artist(db, artist_mbid):
-    artist = db.execute("SELECT * FROM artists WHERE mbid = ?", [artist_mbid])
+def upsert_artist(db, artist_mbid, always_update):
+    should_update = "artists" in always_update
+    artist = db.execute(
+        "SELECT * FROM artists WHERE mbid = :mbid"
+        + (" AND updated_at > :ts" if should_update else ""),
+        {"mbid": artist_mbid, "ts": exec_start},
+    )
     if not artist.fetchone():
         time.sleep(1)  # be nice
         mb_artist = requests.get(
@@ -66,10 +86,15 @@ def upsert_artist(db, artist_mbid):
             db.execute(
                 """
                 INSERT INTO artists VALUES (
-                :id, :name, :sort_name, :country,
-                :disambiguation, :gender, :gender_id,
-                :type, :type_id
+                  :id, :name, :sort_name, :country,
+                  :disambiguation, :gender, :gender_id,
+                  :type, :type_id, NULL
                 )
+                ON CONFLICT ( mbid )
+                DO UPDATE SET
+                  name = :name, sort_name = :sort_name, country = :country,
+                  disambiguation = :disambiguation, gender = :gender, gender_id = :gender_id,
+                  type = :type, type_id = :type_id
                 """,
                 ensure_keys(
                     snake_case(mb_artist),
@@ -89,30 +114,32 @@ def upsert_artist(db, artist_mbid):
         except InterruptedError:
             pass
         except:
-            tqdm.wrte(f"artist response: {mb_artist}")
+            tqdm.write(f"artist response: {mb_artist}")
             raise
 
 
-def upsert_recording_artists(db, artist_mbids, recording_mbid):
+def upsert_recording_artists(db, artist_mbids, recording_mbid, always_update):
     for artist_mbid in artist_mbids:
-        upsert_artist(db, artist_mbid)
+        upsert_artist(db, artist_mbid, always_update)
 
-        artist_on_recording = db.execute(
-            """
-            SELECT * FROM recording_artists
-            WHERE artist_mbid = ? AND recording_mbid = ?;
-            """,
+        db.execute(
+            "INSERT OR IGNORE INTO recording_artists VALUES ( ?, ?, NULL )",
             [artist_mbid, recording_mbid],
         )
-        if not artist_on_recording.fetchone():
-            db.execute(
-                "INSERT INTO recording_artists VALUES ( ?, ? )",
-                [artist_mbid, recording_mbid],
-            )
+    params = ",".join(["?" for _ in artist_mbids])
+    db.execute(
+        f"DELETE FROM recording_artists WHERE recording_mbid = ? AND artist_mbid NOT IN ({params})",
+        [recording_mbid, *artist_mbids],
+    )
 
 
-def upsert_release_with_recording(db, release_mbid, recording_mbid):
-    release = db.execute("SELECT * FROM releases WHERE mbid = ?;", [release_mbid])
+def upsert_release_with_recording(db, release_mbid, recording_mbid, always_update):
+    should_update = "releases" in always_update
+    release = db.execute(
+        "SELECT * FROM releases WHERE mbid = :mbid"
+        + (" AND updated_at > :ts" if should_update else ""),
+        {"mbid": release_mbid, "ts": exec_start},
+    )
     if not release.fetchone():
         time.sleep(1)
         mb_release = requests.get(
@@ -124,9 +151,14 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
             db.execute(
                 """
                 INSERT INTO releases VALUES (
-                :id, :title, :asin, :barcode, :country, :date,
-                :disambiguation, :quality, :status, :status_id
+                  :id, :title, :asin, :barcode, :country, :date,
+                  :disambiguation, :quality, :status, :status_id,
+                  NULL
                 )
+                ON CONFLICT
+                DO UPDATE SET
+                  title = :title, asin = :asin, barcode = :barcode, country = :country, date = :date,
+                  disambiguation = :disambiguation, quality = :quality, status = :status, status_id = :status_id
                 """,
                 ensure_keys(
                     snake_case(mb_release),
@@ -155,14 +187,18 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
                 # TODO: This is not ideal becaue
                 # a) we're using musicbrainz mbids and might have the previous problem of mbid drift
                 # b) we're refetching information we already have due to how upsert_artist is written
-                upsert_artist(db, artist_credit["artist"]["id"])
+                upsert_artist(db, artist_credit["artist"]["id"], always_update)
                 release_artist = db.execute(
                     "SELECT * FROM release_artists WHERE release_mbid = ? AND artist_mbid = ?",
                     [mb_release["id"], artist_credit["artist"]["id"]],
                 )
                 if not release_artist.fetchone():
                     db.execute(
-                        "INSERT INTO release_artists VALUES ( :release_mbid, :artist_mbid, :joinphrase, :name )",
+                        """
+                        INSERT OR IGNORE
+                        INTO release_artists
+                        VALUES ( :release_mbid, :artist_mbid, :joinphrase, :name, NULL )
+                        """,
                         {
                             "release_mbid": mb_release["id"],
                             "artist_mbid": artist_credit["artist"]["id"],
@@ -174,19 +210,13 @@ def upsert_release_with_recording(db, release_mbid, recording_mbid):
             tqdm.write(f"response: {mb_release}")
             raise
 
-    release_recording = db.execute(
+    # TODO: Delete recordings if they're not on the release anymore
+    db.execute(
         """
-        SELECT * FROM release_recordings WHERE recording_mbid = ? AND release_mbid = ?;
+        INSERT OR IGNORE INTO release_recordings VALUES ( ?, ?, NULL )
         """,
         [recording_mbid, release_mbid],
     )
-    if not release_recording.fetchone():
-        db.execute(
-            """
-            INSERT INTO release_recordings VALUES ( ?, ? );
-            """,
-            [recording_mbid, release_mbid],
-        )
 
 
 def upsert_listen(db, listen):
@@ -195,9 +225,8 @@ def upsert_listen(db, listen):
         "SELECT * FROM listens WHERE listened_at = ?", [listened_at]
     )
     if not imported_listen.fetchone():
-        meta = listen["track_metadata"]
         cur = db.execute(
-            "INSERT INTO listens VALUES ( NULL, ?, ?, ?, ? )",
+            "INSERT INTO listens VALUES ( NULL, ?, ?, ?, ?, NULL )",
             [
                 listened_at,
                 listen["user_name"],
@@ -207,7 +236,7 @@ def upsert_listen(db, listen):
         )
 
         db.executemany(
-            "INSERT INTO listen_artists VALUES ( ?, ? )",
+            "INSERT INTO listen_artists VALUES ( ?, ?, NULL )",
             [
                 (cur.lastrowid, artist_mbid)
                 for artist_mbid in get_manual_or_mapped(listen, "artist_mbids")
@@ -225,21 +254,31 @@ def upsert_listen(db, listen):
     type=str,
 )
 @click.option(
-    "--max-results", help="Limit the maximum amount of fetched results.", type=int
+    "--max-results", "-n", help="Limit the maximum amount of fetched results.", type=int
 )
 @click.option(
     "--since",
+    "-s",
     default=datetime.datetime(1970, 1, 1, 1, 0),
     help="Consider only listens more recent than this argument",
     type=click.DateTime(),
 )
 @click.option(
     "--until",
+    "-t",
     default=datetime.datetime.now(),
     help="Consider only listens older than this argument",
     type=click.DateTime(),
 )
-def import_listens(user, max_results, since, until):
+@click.option(
+    "--update",
+    "-u",
+    "always_update",
+    help="Fetch information from Musicbrainz even if it already exists locally. Setting this argument to '*' will re-fetch all information. Use this flag multiple times to update multiple resource types.",
+    multiple=True,
+    type=click.Choice(["artists", "recordings", "releases", "*"]),
+)
+def import_listens(user, max_results, since, until, always_update):
     backend = get_backend("sqlite:///listenbrainz.db")
     migrations = read_migrations("./listenbrainz_to_sqlite/migrations")
     with backend.lock():
@@ -255,6 +294,9 @@ def import_listens(user, max_results, since, until):
 
         min_ts = int(time.mktime(since.timetuple()))
         max_ts = int(time.mktime(until.timetuple()))
+
+        if "*" in always_update:
+            always_update = ("artists", "recordings", "releases")
 
         while True:
             max_dt = datetime.datetime.fromtimestamp(max_ts)
@@ -290,16 +332,12 @@ def import_listens(user, max_results, since, until):
                     continue
 
                 try:
-                    upsert_recording(cur, recording_mbid)
+                    upsert_recording(cur, recording_mbid, always_update)
                     upsert_recording_artists(
-                        cur,
-                        artist_mbids,
-                        recording_mbid,
+                        cur, artist_mbids, recording_mbid, always_update
                     )
                     upsert_release_with_recording(
-                        cur,
-                        release_mbid,
-                        recording_mbid,
+                        cur, release_mbid, recording_mbid, always_update
                     )
                     upsert_listen(cur, listen)
                 except:
