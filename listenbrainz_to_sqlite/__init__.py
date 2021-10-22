@@ -250,7 +250,7 @@ def upsert_listen(db, listen):
 @click.option(
     "--user",
     required=True,
-    help="The Listenbrainz username form which to import listens",
+    help="The Listenbrainz username for which to import listens.",
     type=str,
 )
 @click.option(
@@ -260,14 +260,14 @@ def upsert_listen(db, listen):
     "--since",
     "-s",
     default=datetime.datetime(1970, 1, 1, 1, 0),
-    help="Consider only listens more recent than this argument",
+    help="Consider only listens more recent than this argument.",
     type=click.DateTime(),
 )
 @click.option(
     "--until",
     "-t",
     default=datetime.datetime.now(),
-    help="Consider only listens older than this argument",
+    help="Consider only listens older than this argument.",
     type=click.DateTime(),
 )
 @click.option(
@@ -285,7 +285,7 @@ def import_listens(user, max_results, since, until, always_update):
         backend.apply_migrations(backend.to_apply(migrations))
 
     with sqlite3.connect("listenbrainz.db") as con, tqdm(
-        desc=f"Importing listens from the listenbrainz API", unit="listen(s)"
+        desc=f"Importing listens from the Listenbrainz API", unit="listen(s)"
     ) as pbar:
         con.isolation_level = None
         cur = con.cursor()

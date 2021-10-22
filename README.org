@@ -15,15 +15,15 @@ Usage: import_listens [OPTIONS]
   releases, and recordings.
 
 Options:
-  --user TEXT                     The Listenbrainz username form which to
-                                  import listens  [required]
+  --user TEXT                     The Listenbrainz username for which to
+                                  import listens.  [required]
   -n, --max-results INTEGER       Limit the maximum amount of fetched results.
   -s, --since [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]
                                   Consider only listens more recent than this
-                                  argument
+                                  argument.
   -t, --until [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%d %H:%M:%S]
                                   Consider only listens older than this
-                                  argument
+                                  argument.
   -u, --update [artists|recordings|releases|*]
                                   Fetch information from Musicbrainz even if
                                   it already exists locally. Setting this
