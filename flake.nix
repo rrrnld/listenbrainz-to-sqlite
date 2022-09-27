@@ -26,16 +26,18 @@
       in
       rec {
         apps = {
-          myapp = pkgs.myapp;
+          datasetteListenbrainzImporter = pkgs.datasetteListenbrainzImporter;
         };
 
-        defaultApp = apps.myapp;
+        defaultApp = apps.datasetteListenbrainzImporter;
 
         devShell = pkgs.mkShell rec {
           buildInputs = with pkgs; [
-            python3
-            poetry
-            black
+            (python3.withPackages(ps: with ps; [
+              pip
+              poetry
+              black
+            ]))
           ];
        };
       }));
