@@ -244,6 +244,9 @@ def upsert_listen(db, listen):
         )
 
 
+now = datetime.datetime.now()
+
+
 @click.command(
     help="Imports listenbrainz history of a single user with associated artists, releases, and recordings."
 )
@@ -260,13 +263,13 @@ def upsert_listen(db, listen):
     "--since",
     "-s",
     default=datetime.datetime(1970, 1, 1, 1, 0),
-    help="Consider only listens more recent than this argument.",
+    help="Consider only listens more recent than this argument. Defaults to the most recent listen saved in the database.",
     type=click.DateTime(),
 )
 @click.option(
     "--until",
     "-t",
-    default=datetime.datetime.now(),
+    default=now,
     help="Consider only listens older than this argument.",
     type=click.DateTime(),
 )
@@ -284,11 +287,17 @@ def import_listens(user, max_results, since, until, always_update):
     with backend.lock():
         backend.apply_migrations(backend.to_apply(migrations))
 
-    with sqlite3.connect("listenbrainz.db") as con, tqdm(
+    with sqlite3.connect("listenbrainz.db", 100, sqlite3.PARSE_DECLTYPES) as con, tqdm(
         desc=f"Importing listens from the Listenbrainz API", unit="listen(s)"
     ) as pbar:
         con.isolation_level = None
         cur = con.cursor()
+
+        if not since and until == now:
+            res = cur.execute(
+                "SELECT listened_at FROM listens ORDER BY listened_at LIMIT 1"
+            ).fetchone()
+            since = res and res[0] or datetime.datetime(1970, 1, 1, 1, 0)
 
         num_results = 0
 
