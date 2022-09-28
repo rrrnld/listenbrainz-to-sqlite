@@ -225,23 +225,51 @@ def upsert_listen(db, listen):
         "SELECT * FROM listens WHERE listened_at = ?", [listened_at]
     )
     if not imported_listen.fetchone():
+        recording_msid = listen.get("recording_msid")
+        artist_msid = (
+            listen.get("track_metadata", {})
+            .get("additional_info", {})
+            .get("artist_msid")
+        )
+        release_msid = (
+            listen.get("track_metadata", {})
+            .get("additional_info", {})
+            .get("release_msid")
+        )
         cur = db.execute(
-            "INSERT INTO listens VALUES ( NULL, ?, ?, ?, ?, NULL )",
+            "INSERT INTO listens VALUES ( NULL, ?, ?, ?, ?, NULL, ?, ?, ? )",
             [
                 listened_at,
                 listen["user_name"],
                 get_manual_or_mapped(listen, "recording_mbid"),
                 get_manual_or_mapped(listen, "release_mbid"),
+                artist_msid,
+                recording_msid,
+                release_msid,
             ],
         )
 
-        db.executemany(
-            "INSERT INTO listen_artists VALUES ( ?, ?, NULL )",
-            [
-                (cur.lastrowid, artist_mbid)
-                for artist_mbid in get_manual_or_mapped(listen, "artist_mbids")
-            ],
-        )
+        # TODO: listen_artists may change over time, especially with new msid-mappings
+        # It might be ok to ignore them here and just refer to the recording- or
+        if artist_mbids := get_manual_or_mapped(listen, "artist_mbids"):
+            # release-artists instead?
+            db.executemany(
+                "INSERT INTO listen_artists VALUES ( ?, ?, NULL )",
+                [(cur.lastrowid, artist_mbid) for artist_mbid in artist_mbids],
+            )
+
+        # make sure we get new mappings for previously unmapped values; the
+        # we only do this for the `recording_msid` because the rest can be
+        # deduced from that value and we have the info in our database because
+        # of the other upserts
+        if recording_msid:
+            db.execute(
+                "UPDATE listens SET recording_mbid = :recording_mbid WHERE recording_msid = :recording_msid",
+                {
+                    "recording_mbid": get_manual_or_mapped(listen, "recording_mbid"),
+                    "recording_msid": recording_msid,
+                },
+            )
 
 
 now = datetime.datetime.now()
@@ -331,24 +359,16 @@ def import_listens(user, max_results, since, until, always_update):
                 recording_mbid = get_manual_or_mapped(listen, "recording_mbid")
                 release_mbid = get_manual_or_mapped(listen, "release_mbid")
 
-                if not (artist_mbids and recording_mbid and release_mbid):
-                    meta = listen["track_metadata"]
-                    artist_name = meta.get("artist_name", "")
-                    track_name = meta.get("track_name", "")
-                    tqdm.write(
-                        f"Skipping listen without mbid info: {artist_name} - {track_name}",
-                    )
-                    continue
-
                 try:
-                    upsert_recording(cur, recording_mbid, always_update)
-                    upsert_recording_artists(
-                        cur, artist_mbids, recording_mbid, always_update
-                    )
-                    upsert_release_with_recording(
-                        cur, release_mbid, recording_mbid, always_update
-                    )
                     upsert_listen(cur, listen)
+                    if artist_mbids and recording_mbid and release_mbid:
+                        upsert_recording(cur, recording_mbid, always_update)
+                        upsert_recording_artists(
+                            cur, artist_mbids, recording_mbid, always_update
+                        )
+                        upsert_release_with_recording(
+                            cur, release_mbid, recording_mbid, always_update
+                        )
                 except:
                     tqdm.write(
                         f"Something went wrong while requesting {req.url}, aborting"
